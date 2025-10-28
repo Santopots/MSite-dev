@@ -1,24 +1,37 @@
 import { useEffect, useState } from "react";
+import { fetchFromStrapi } from "@/lib/strapi";
+
+type StrapiCollectionResponse<T> = { data: T[]; meta?: unknown };
 
 export function useGetFeaturedProduct() {
-    // generar url
-    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/produts?filters[isFeatured][$eq]=true&populate=*`
-    const [result, setResult] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState("")
-    useEffect(() => {
-        (async () => {
-            try {
-                const response = await fetch(url);
-                const json = await response.json();
-                setResult(json.data);
-            } catch (error) {
-                setError("Error fetching featured products");
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, [url]);
+  const [result, setResult] = useState<any[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
 
-    return { result, loading, error };
+  useEffect(() => {
+    let isCancelled = false;
+    (async () => {
+      try {
+        const json = await fetchFromStrapi<StrapiCollectionResponse<any>>("/api/articles", {
+          params: {
+            sort: "createdAt:desc",
+            "pagination[pageSize]": 10,
+            populate: "*",
+          },
+        });
+        if (!isCancelled) {
+          setResult(json.data);
+        }
+      } catch (e) {
+        if (!isCancelled) setError("Error fetching content");
+      } finally {
+        if (!isCancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  return { result, loading, error };
 }
